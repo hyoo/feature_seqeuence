@@ -26,8 +26,9 @@ function createOrIgnoreSubPath(path) {
       });
     });
     if (chk === 'NEED_TO_CREATE') {
-      fs.mkdir(path, { mode: 755 }, (err_1) => {
-        if (err_1) {
+      fs.mkdir(path, { mode: 755 }, (err) => {
+        if (err) {
+          console.error(err)
           reject(`Error in creating ${path}`);
         }
         resolve();
@@ -36,6 +37,21 @@ function createOrIgnoreSubPath(path) {
     else if (chk === 'EXIST') {
       resolve();
     }
+  })
+}
+
+function readSequence(path, id) {
+  // console.log(`checking .. ${path}${id}`)
+  return new Promise((resolve, reject) => {
+    fs.readFile(`${path}${id}`, {encoding: 'utf8'}, (err, data) => {
+      if (err) {
+        if (err.code === 'ENOENT') {
+          reject('FILE_NOT_EXIST')
+        }
+        reject('FILE_READ_ERROR')
+      }
+      resolve({id: id, sequence: data})
+    })
   })
 }
 
@@ -76,13 +92,16 @@ exports.addSequence = function(body) {
             reject("something went wrong")
           })
         })
-      }).err((errLv2) => {
-      // error related creating second level dir
-      reject(errLv2)
-    })
-    ).err((errLv1) => {
+      })
+      .catch((errLv2) => {
+        // error related creating second level dir
+        console.error(errLv2)
+        reject({code: 500, response: 'Error in creating direcotry'})
+      })
+    ).catch((errLv1) => {
       // error related creating first level dir
-      reject(errLv1)
+      console.error(errLv1)
+      reject({code: 500, response: 'Error in creating direcotry'})
     })
   })
 }
@@ -96,13 +115,15 @@ exports.addSequence = function(body) {
  * returns FeatureSequence
  **/
 exports.getMultipleSequencesById = function(ids) {
-  return new Promise(function(resolve, reject) {
-    var examples = {};
-    examples['application/json'] = {
-  "sequence" : "ACTG",
-  "id" : "id",
-  "type" : "AA"
-};
+  const idList = ids.split(',')
+
+  return new Promise(async (resolve, reject) => {
+    const seqs =  await Promise.all(idList.map((id) => {
+      return readSequence(makePath('./data', id, 2), id).catch(err => ({id: id, sequence: ''}))
+    }))
+
+    var examples = {'application/json': seqs}
+
     if (Object.keys(examples).length > 0) {
       resolve(examples[Object.keys(examples)[0]]);
     } else {
@@ -122,17 +143,18 @@ exports.getMultipleSequencesById = function(ids) {
 exports.getSequenceById = function(id) {
   console.log(`received request: ${id}`)
   return new Promise(function(resolve, reject) {
-    var examples = {};
-    examples['application/json'] = {
-  "sequence" : "ACTG",
-  "id" : "id",
-  "type" : "AA"
-};
-    if (Object.keys(examples).length > 0) {
+    const path = makePath('./data', id, 2)
+    readSequence(path, id)
+    .then((sequence) => {
+
+      const examples = {'application/json': sequence}
+
       resolve(examples[Object.keys(examples)[0]]);
-    } else {
-      resolve();
-    }
+    })
+    .catch((err) => {
+      // handle http error
+      reject({code: 404, response: `Sequence ${id} not found`})
+    })
   });
 }
 
