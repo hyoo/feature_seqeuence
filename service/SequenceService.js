@@ -26,13 +26,19 @@ function createOrIgnoreSubPath(path) {
       });
     });
     if (chk === 'NEED_TO_CREATE') {
-      fs.mkdir(path, { mode: 755 }, (err) => {
-        if (err) {
-          console.error(err)
-          reject(`Error in creating ${path}`);
-        }
-        resolve();
-      });
+      const mk = await new Promise((res, rej) => {
+        fs.mkdir(path, { mode: 755 }, (err) => {
+          if (err) {
+            rej('ERROR_TO_CREATE');
+          }
+          res('CREATED');
+        });
+      })
+      if (mk === 'CREATED') {
+        resolve()
+      } else {
+        reject(mk)
+      }
     }
     else if (chk === 'EXIST') {
       resolve();
@@ -40,9 +46,28 @@ function createOrIgnoreSubPath(path) {
   })
 }
 
-function storeSequence(path, id, data) {
+function storeSequence(baseDir, seqId, sequenceObject) {
+  return new Promise(async (resolve, reject) => {
+    const subPathLv1 = makePath(baseDir, seqId, 1)
+    const subPathLv2 = makePath(baseDir, seqId, 2)
+
+    await createOrIgnoreSubPath(subPathLv1)
+    await createOrIgnoreSubPath(subPathLv2)
+
+    saveToFile(subPathLv2, seqId, sequenceObject)
+    .then(() => {
+      resolve()
+    })
+    .catch((errStore) => {
+      console.error(errStore)
+      reject({code: 500, response: 'Error in storing file'})
+    })
+  })
+}
+
+function saveToFile(filePath, seqId, sequenceObject) {
   return new Promise((resolve, reject) => {
-    fs.open(`${path}/${id}`, 'w', (err, fd) => {
+    fs.open(`${filePath}/${seqId}`, 'w', (err, fd) => {
       if (err) {
         if (err.code === 'EEXIST') {
           // already exist. it is okay. continue
@@ -51,7 +76,7 @@ function storeSequence(path, id, data) {
         reject(err)
       }
       // write one
-      fs.write(fd, data, (err, written, string) => {
+      fs.write(fd, JSON.stringify(sequenceObject), (err, written) => {
         if (err) {
           reject(err)
         }
@@ -76,7 +101,7 @@ function readSequence(path, id) {
         }
         reject('FILE_READ_ERROR')
       }
-      resolve({id: id, sequence: data})
+      resolve(JSON.parse(data))
     })
   })
 }
@@ -89,35 +114,7 @@ function readSequence(path, id) {
  * no response value expected for this operation
  **/
 exports.addSequence = function(body) {
-  return new Promise((resolve, reject) => {
-    const seqId = body.id
-    const subPathLv1 = makePath('./data', seqId, 1)
-    const subPathLv2 = makePath('./data', seqId, 2)
-
-    createOrIgnoreSubPath(subPathLv1)
-    .then(
-      createOrIgnoreSubPath(subPathLv2)
-      .then(
-        storeSequence(subPathLv2, seqId, body.sequence)
-        .then(() => {
-          resolve()
-        })
-        .catch((errStore) => {
-          console.error(errStore)
-          reject({code: 500, response: 'Error in storing file'})
-        })
-      )
-      .catch((errLv2) => {
-        // error related creating second level dir
-        console.error(errLv2)
-        reject({code: 500, response: 'Error in creating direcotry'})
-      })
-    ).catch((errLv1) => {
-      // error related creating first level dir
-      console.error(errLv1)
-      reject({code: 500, response: 'Error in creating direcotry'})
-    })
-  })
+  return storeSequence('./data', body.id, body)
 }
 
 /**
@@ -128,10 +125,12 @@ exports.addSequence = function(body) {
  * no response value expected for this operation
  **/
 exports.addMultipleSequences = function(body) {
-  return new Promise((resolve, reject) => {
-    // expect mutiple sequences
-    const sequences = body.sequences
-    console.log(sequences)
+  return new Promise(async (resolve, reject) => {
+    await Promise.all(body.map((sequenceObject) => {
+      return storeSequence('./data', sequenceObject.id, sequenceObject)
+    }))
+
+    resolve()
   })
 }
 
