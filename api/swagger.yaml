@@ -1,15 +1,12 @@
 ---
 swagger: "2.0"
 info:
-  description: "This is a sample server Petstore server.  You can find out more about\
-    \     Swagger at [http://swagger.io](http://swagger.io) or on [irc.freenode.net,\
-    \ #swagger](http://swagger.io/irc/).      For this sample, you can use the api\
-    \ key `special-key` to test the authorization     filters."
+  description: "Feature Sequence Store"
   version: "1.0.0"
-  title: "Swagger Petstore"
+  title: "Feature Sequence Store"
   termsOfService: "http://swagger.io/terms/"
   contact:
-    email: "apiteam@swagger.io"
+    email: "hsyoo@anl.gov"
   license:
     name: "Apache 2.0"
     url: "http://www.apache.org/licenses/LICENSE-2.0.html"
@@ -17,10 +14,7 @@ host: "localhost:8080"
 basePath: "/v1"
 tags:
 - name: "Sequence"
-  description: "Everything about your Pets"
-  externalDocs:
-    description: "Find out more"
-    url: "http://swagger.io"
+  description: "Feature Sequence"
 schemes:
 - "http"
 paths:
@@ -42,6 +36,30 @@ paths:
         required: true
         schema:
           $ref: "#/definitions/FeatureSequence"
+      responses:
+        "405":
+          description: "Invalid input"
+      security:
+      - api_key: []
+      x-swagger-router-controller: "Sequence"
+  /feature_sequence/batch/:
+    post:
+      tags:
+      - "Sequence"
+      summary: "Add new sequences"
+      description: ""
+      operationId: "addMultipleSequences"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "body"
+        description: "sequences"
+        required: true
+        schema:
+          $ref: "#/definitions/ArrayOfFeatureSequence"
       responses:
         "405":
           description: "Invalid input"
@@ -75,7 +93,7 @@ paths:
       security:
       - api_key: []
       x-swagger-router-controller: "Sequence"
-  /feature_sequence/fetch/{ids}:
+  /feature_sequence/batch/{ids}:
     get:
       tags:
       - "Sequence"
@@ -129,6 +147,10 @@ definitions:
       sequence: "ACTG"
       id: "id"
       type: "AA"
+  ArrayOfFeatureSequence:
+    type: "array"
+    items:
+      $ref: "#/definitions/FeatureSequence"
 externalDocs:
   description: "Find out more about Swagger"
   url: "http://swagger.io"

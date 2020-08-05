@@ -40,6 +40,32 @@ function createOrIgnoreSubPath(path) {
   })
 }
 
+function storeSequence(path, id, data) {
+  return new Promise((resolve, reject) => {
+    fs.open(`${path}/${id}`, 'w', (err, fd) => {
+      if (err) {
+        if (err.code === 'EEXIST') {
+          // already exist. it is okay. continue
+          resolve()
+        }
+        reject(err)
+      }
+      // write one
+      fs.write(fd, data, (err, written, string) => {
+        if (err) {
+          reject(err)
+        }
+        if (written > 0) {
+          resolve()
+        } else {
+          reject("something wrong in file size")
+        }
+        reject("something went wrong")
+      })
+    })
+  })
+}
+
 function readSequence(path, id) {
   // console.log(`checking .. ${path}${id}`)
   return new Promise((resolve, reject) => {
@@ -63,36 +89,24 @@ function readSequence(path, id) {
  * no response value expected for this operation
  **/
 exports.addSequence = function(body) {
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     const seqId = body.id
     const subPathLv1 = makePath('./data', seqId, 1)
     const subPathLv2 = makePath('./data', seqId, 2)
 
-    createOrIgnoreSubPath(subPathLv1).then(
-      createOrIgnoreSubPath(subPathLv2).then(() => {
-        // saving sequence in file
-        fs.open(`${subPathLv2}/${seqId}`, 'w', (err, fd) => {
-          if (err) {
-            if (err.code === 'EEXIST') {
-              // already exist. it is okay. continue
-              resolve()
-            }
-            reject(err)
-          }
-          // write one
-          fs.write(fd, body.sequence, (err, written, string) => {
-            if (err) {
-              reject(err)
-            }
-            if (written > 0) {
-              resolve()
-            } else {
-              reject("something wrong in file size")
-            }
-            reject("something went wrong")
-          })
+    createOrIgnoreSubPath(subPathLv1)
+    .then(
+      createOrIgnoreSubPath(subPathLv2)
+      .then(
+        storeSequence(subPathLv2, seqId, body.sequence)
+        .then(() => {
+          resolve()
         })
-      })
+        .catch((errStore) => {
+          console.error(errStore)
+          reject({code: 500, response: 'Error in storing file'})
+        })
+      )
       .catch((errLv2) => {
         // error related creating second level dir
         console.error(errLv2)
@@ -103,6 +117,21 @@ exports.addSequence = function(body) {
       console.error(errLv1)
       reject({code: 500, response: 'Error in creating direcotry'})
     })
+  })
+}
+
+/**
+ * Add new sequences
+ *
+ *
+ * body ArrayOfFeatureSequence sequences
+ * no response value expected for this operation
+ **/
+exports.addMultipleSequences = function(body) {
+  return new Promise((resolve, reject) => {
+    // expect mutiple sequences
+    const sequences = body.sequences
+    console.log(sequences)
   })
 }
 
