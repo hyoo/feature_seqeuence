@@ -1,6 +1,7 @@
 'use strict';
 
 var fs = require('fs');
+const DATA_DIR = './data'
 
 function makePath(baseDir, seqId, level) {
   if (level === 2) {
@@ -114,7 +115,7 @@ function readSequence(path, id) {
  * no response value expected for this operation
  **/
 exports.addSequence = function(body) {
-  return storeSequence('./data', body.id, body)
+  return storeSequence(DATA_DIR, body.id, body)
 }
 
 /**
@@ -127,7 +128,7 @@ exports.addSequence = function(body) {
 exports.addMultipleSequences = function(body) {
   return new Promise(async (resolve, reject) => {
     await Promise.all(body.map((sequenceObject) => {
-      return storeSequence('./data', sequenceObject.id, sequenceObject)
+      return storeSequence(DATA_DIR, sequenceObject.id, sequenceObject)
     }))
 
     resolve()
@@ -147,7 +148,7 @@ exports.getMultipleSequencesById = function(ids) {
 
   return new Promise(async (resolve, reject) => {
     const seqs =  await Promise.all(idList.map((id) => {
-      return readSequence(makePath('./data', id, 2), id).catch(err => ({id: id, sequence: ''}))
+      return readSequence(makePath(DATA_DIR, id, 2), id).catch(err => ({id: id, sequence: ''}))
     }))
 
     var examples = {'application/json': seqs}
@@ -171,7 +172,7 @@ exports.getMultipleSequencesById = function(ids) {
 exports.getSequenceById = function(id) {
   console.log(`received request: ${id}`)
   return new Promise(function(resolve, reject) {
-    const path = makePath('./data', id, 2)
+    const path = makePath(DATA_DIR, id, 2)
     readSequence(path, id)
     .then((sequence) => {
 
